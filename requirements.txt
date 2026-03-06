@@ -1,0 +1,10 @@
+fastapi[standard]>=0.115.0
+uvicorn>=0.32.0
+sqlalchemy>=2.0.36
+pymysql>=1.1.1
+celery>=5.4.0
+redis>=5.2.0
+python-dotenv>=1.0.1
+requests>=2.32.3
+# Optional: eventlet pool for Celery on non-Windows and older Python versions.
+eventlet>=0.36.1; platform_system != "Windows" and python_version < "3.13"
