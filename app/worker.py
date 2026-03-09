@@ -3,7 +3,7 @@ from functools import lru_cache
 import redis
 from celery import Celery
 from celery.schedules import crontab
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 from app.config import get_settings
 from app.logger import setup_logger
@@ -84,21 +84,22 @@ def _set_next_query_page(query_term: str, current_page: int) -> None:
 
 
 def _select_query_term() -> str:
-    """
-    Selects a query term in round-robin fashion based on current UTC minute slot.
-    """
     terms = settings.QUERY_TERMS
-    minute_slot = int(datetime.now(timezone.utc).timestamp() // 60)
-    idx = minute_slot % len(terms)
+    client = _redis_state_client()
+
+    if client is None:
+        return terms[0]
+
+    current_count = client.incr("news_topic_counter")
+    idx = current_count % len(terms)
+
     return terms[idx]
 
 
 # this the the task worker has to do
 @celery_app.task
 def task_fetch_and_store_news():
-    """
-    Task to fetch latest news and store it in the database.
-    """
+
     query_term = _select_query_term()
     page = _get_query_page(query_term)
 
@@ -107,7 +108,7 @@ def task_fetch_and_store_news():
     )
     articles = fetch_latest_news(query=query_term, page=page)
 
-    # Move this query to the next page for its next turn, regardless of inserts.
+    # increse the page number
     _set_next_query_page(query_term, page)
 
     if not articles:
@@ -118,20 +119,22 @@ def task_fetch_and_store_news():
     try:
         new_count = 0
         for item in articles:
-            # Checking for deuplicate articles.
             exists = (
                 db.query(NewsArticle).filter(NewsArticle.url == item.get("url")).first()
             )
             if not exists:
 
-                # Parse published_at
                 published_at_str = item.get("publishedAt")
-                published_at = datetime.now(timezone.utc)
+                ist_offset = timedelta(hours=5, minutes=30)
+                ist_timezone = timezone(ist_offset)
+                published_at = datetime.now(ist_timezone)
+
                 if published_at_str:
                     try:
-                        published_at = datetime.strptime(
+                        utc_time = datetime.strptime(
                             published_at_str, "%Y-%m-%dT%H:%M:%SZ"
                         ).replace(tzinfo=timezone.utc)
+                        published_at = utc_time.astimezone(ist_timezone)
                     except ValueError:
                         pass
 

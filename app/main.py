@@ -7,6 +7,8 @@ from typing import List
 from app.database import engine, Base, get_db
 from app import models, schemas
 from app.logger import setup_logger
+import json
+from fastapi.responses import Response
 
 logger = setup_logger("fastapi_app")
 
@@ -14,11 +16,6 @@ logger = setup_logger("fastapi_app")
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="News API Application")
-
-
-import json
-from fastapi.responses import Response
-
 
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
@@ -80,3 +77,6 @@ def get_news(date: date, db: Session = Depends(get_db)):
     except Exception as e:
         logger.error(f"Error fetching news from database: {str(e)}")
         raise HTTPException(status_code=500, detail="Internal server error")
+
+
+        
