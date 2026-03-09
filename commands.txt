@@ -2,3 +2,10 @@ python -c "import redis; r=redis.Redis(host='localhost',port=6379,db=0); print(r
 python -c "import redis; r=redis.Redis(host='localhost',port=6379,db=0); print(r.lindex('celery',0))"
 python -c "import redis; r=redis.Redis(host='localhost',port=6379,db=0,decode_responses=True); print(list(r.scan_iter('celery-task-meta-*'))[:10])"
 python -c "import redis; r=redis.Redis(host='localhost',port=6379,db=0,decode_responses=True); ks=list(r.scan_iter('celery-task-meta-*')); print(r.get(ks[0]) if ks else 'no result key')"
+redis-cli -u redis://localhost:6379/0 DEL news_topic_counter
+redis-cli -u redis://localhost:6379/0 DEL news_query_page:bitcoin news_query_page:technology news_query_page:finance news_query_page:ai news_query_page:startups
+redis-cli -u redis://localhost:6379/0 GET news_topic_counter
+redis-cli -u redis://localhost:6379/0 GET news_query_page:bitcoin
+uvicorn app.main:app --reload
+celery -A app.worker.celery_app worker -l INFO --pool=solo
+celery -A app.worker.celery_app beat -l INFO
